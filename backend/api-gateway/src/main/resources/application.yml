@@ -1,0 +1,126 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: "*"
+
+      routes:
+        # ── PUBLIC ROUTES ──────────────────────────────
+        - id: auth-service-public
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/v1/auth/register, /api/v1/auth/login, /api/v1/auth/logout
+
+        # ── INTERNAL ROUTES (NO AUTH) ──────────────────
+        # Auth service internal - MUST come BEFORE protected routes
+        - id: auth-service-internal
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/v1/auth/users/internal/**
+          # No AuthenticationFilter - service-to-service
+
+        # User service internal
+        - id: user-service-internal
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/users/internal/**
+          # No AuthenticationFilter
+
+        # Order service internal
+        - id: order-service-internal
+          uri: lb://order-service
+          predicates:
+            - Path=/api/v1/orders/internal/**
+          # No AuthenticationFilter
+
+        # Restaurant service internal
+        - id: restaurant-service-internal
+          uri: lb://restaurant-service
+          predicates:
+            - Path=/api/v1/menus/internal/**, /api/v1/restaurants/internal/**
+          # No AuthenticationFilter
+
+        # ── PROTECTED ROUTES (WITH AUTH) ───────────────
+        - id: auth-service-protected
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/v1/auth/**, /api/v1/admin/**, /api/v1/manager/**
+          filters:
+            - AuthenticationFilter
+
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/users/**, /api/v1/addresses/**, /api/v1/favourites/**
+          filters:
+            - AuthenticationFilter
+
+        - id: restaurant-service
+          uri: lb://restaurant-service
+          predicates:
+            - Path=/api/v1/restaurants/**, /api/v1/menus/**
+          filters:
+            - AuthenticationFilter
+
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/v1/orders/**, /api/v1/cart/**, /api/v1/tracking/**
+          filters:
+            - AuthenticationFilter
+
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - AuthenticationFilter
+
+        - id: support-service
+          uri: lb://support-service
+          predicates:
+            - Path=/api/v1/support/**, /api/v1/reviews/**
+          filters:
+            - AuthenticationFilter
+
+jwt:
+  secret: IRw9n8S6hZH3EAoU384v/WcKiJSL75g0efuT0PlOE77ZkdJhIS/7+v9ej/xvRMGEJ2TprjUUld/H/mPrsQNvxg==
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+    ip-address: 127.0.0.1
+    hostname: 127.0.0.1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,routes
+  endpoint:
+    health:
+      show-details: always
